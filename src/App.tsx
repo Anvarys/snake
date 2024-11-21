@@ -38,13 +38,12 @@ const GameBoard = styled(Box)`
 
 const Cell = styled(Box)<{ 
   $isSnake?: boolean; 
-  $isFood?: boolean;
   $isHead?: boolean;
 }>`
   position: absolute;
   width: ${CELL_SIZE}px;
   height: ${CELL_SIZE}px;
-  background-color: ${({ $isSnake, $isFood }) =>
+  background-color: ${({ $isSnake }) =>
     $isSnake ? '#8b5cf6' : 'transparent'};
   border-radius: ${({ $isHead }) => ($isHead ? '8px' : '4px')};
   transition: left ${INITIAL_SPEED}ms linear, top ${INITIAL_SPEED}ms linear;
