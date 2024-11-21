@@ -13,6 +13,13 @@ const CELL_SIZE = 25;
 const INITIAL_SPEED = 100;
 const MOBILE_BREAKPOINT = 600;
 
+const getCellSize = () => {
+  if (typeof window === 'undefined') return CELL_SIZE;
+  return window.innerWidth < MOBILE_BREAKPOINT ? 
+    Math.floor((window.innerWidth - 40) / GRID_SIZE) : 
+    CELL_SIZE;
+};
+
 const GameContainer = styled(Paper)`
   && {
     position: fixed;
@@ -43,8 +50,8 @@ const GameContainer = styled(Paper)`
 
 const GameBoard = styled(Box)`
   position: relative;
-  width: ${props => GRID_SIZE * getCellSize()}px;
-  height: ${props => GRID_SIZE * getCellSize()}px;
+  width: ${GRID_SIZE * getCellSize()}px;
+  height: ${GRID_SIZE * getCellSize()}px;
   border: 2px solid #8b5cf6;
   border-radius: 8px;
   background: #faf5ff;
@@ -58,8 +65,8 @@ const Cell = styled(Box)<{
   color?: string;
 }>`
   position: absolute;
-  width: ${props => getCellSize()}px;
-  height: ${props => getCellSize()}px;
+  width: ${getCellSize()}px;
+  height: ${getCellSize()}px;
   background: ${({ $isSnake, color }) =>
     $isSnake ? color : 'transparent'};
   border-radius: ${({ $isHead }) => ($isHead ? '8px' : '4px')};
@@ -93,8 +100,8 @@ const Cell = styled(Box)<{
 
 const FoodCell = styled(Box)`
   position: absolute;
-  width: ${props => getCellSize()}px;
-  height: ${props => getCellSize()}px;
+  width: ${getCellSize()}px;
+  height: ${getCellSize()}px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -140,13 +147,6 @@ const LogoImage = styled.img`
   width: auto;
 `;
 
-const getCellSize = () => {
-  if (typeof window === 'undefined') return CELL_SIZE;
-  return window.innerWidth < MOBILE_BREAKPOINT ? 
-    Math.floor((window.innerWidth - 40) / GRID_SIZE) : 
-    CELL_SIZE;
-};
-
 // Function to generate gradient colors based on index
 const getSnakeColor = (index: number) => {
   const baseColor = 200; // Base hue for the gradient
@@ -170,12 +170,28 @@ const App = () => {
   const [cellSize, setCellSize] = useState(getCellSize());
 
   const generateFood = useCallback(() => {
-    const newFood = {
-      x: Math.floor(Math.random() * GRID_SIZE),
-      y: Math.floor(Math.random() * GRID_SIZE),
+    const getNewFoodPosition = (): Position => {
+      // Create a new position
+      const newPos = {
+        x: Math.floor(Math.random() * GRID_SIZE),
+        y: Math.floor(Math.random() * GRID_SIZE),
+      };
+
+      // Check if this position overlaps with the snake
+      const isOnSnake = snake.some(
+        segment => segment.x === newPos.x && segment.y === newPos.y
+      );
+
+      // If it overlaps, try again recursively
+      if (isOnSnake) {
+        return getNewFoodPosition();
+      }
+
+      return newPos;
     };
-    setFood(newFood);
-  }, []);
+
+    setFood(getNewFoodPosition());
+  }, [snake]);
 
   const resetGame = () => {
     setSnake([
@@ -191,7 +207,7 @@ const App = () => {
     generateFood();
   };
 
-  const checkCollision = (head: Position): boolean => {
+  const checkCollision = (head: Position, currentSnake: Position[]): boolean => {
     // Check wall collision
     if (
       head.x < 0 ||
@@ -202,8 +218,10 @@ const App = () => {
       return true;
     }
 
-    // Check self collision
-    return snake.some((segment) => segment.x === head.x && segment.y === head.y);
+    // Check self collision, but skip the tail since it will move
+    return currentSnake.slice(0, -1).some(
+      (segment) => segment.x === head.x && segment.y === head.y
+    );
   };
 
   const moveSnake = useCallback(() => {
@@ -211,34 +229,37 @@ const App = () => {
 
     setSnake((currentSnake) => {
       const head = { ...currentSnake[0] };
+      let newHead = { ...head };
 
       switch (direction) {
         case 'up':
-          head.y -= 1;
+          newHead.y -= 1;
           break;
         case 'down':
-          head.y += 1;
+          newHead.y += 1;
           break;
         case 'left':
-          head.x -= 1;
+          newHead.x -= 1;
           break;
         case 'right':
-          head.x += 1;
+          newHead.x += 1;
           break;
       }
 
-      if (checkCollision(head)) {
+      // Check collision with new head position and current snake
+      if (checkCollision(newHead, currentSnake)) {
         setIsGameOver(true);
         return currentSnake;
       }
 
-      const newSnake = [head, ...currentSnake];
+      const newSnake = [newHead, ...currentSnake];
 
-      if (head.x === food.x && head.y === food.y) {
+      // Remove tail only if food wasn't eaten
+      if (!(newHead.x === food.x && newHead.y === food.y)) {
+        newSnake.pop();
+      } else {
         setScore(score + 1);
         generateFood();
-      } else {
-        newSnake.pop();
       }
 
       setCanChangeDirection(true);
