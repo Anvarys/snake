@@ -70,6 +70,16 @@ const Cell = styled(Box)<{
   `}
 `;
 
+const FoodCell = styled(Box)`
+  position: absolute;
+  width: ${CELL_SIZE}px;
+  height: ${CELL_SIZE}px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: left ${INITIAL_SPEED}ms linear, top ${INITIAL_SPEED}ms linear;
+`;
+
 const GameOverModal = styled(Paper)`
   && {
     position: absolute;
@@ -262,8 +272,7 @@ const App = () => {
             }}
           />
         ))}
-        <Cell
-          $isFood
+        <FoodCell
           style={{
             left: food.x * CELL_SIZE,
             top: food.y * CELL_SIZE,
@@ -276,7 +285,7 @@ const App = () => {
               filter: 'drop-shadow(0px 2px 2px rgba(0,0,0,0.2))'
             }} 
           />
-        </Cell>
+        </FoodCell>
         {isGameOver && (
           <GameOverModal>
             <Typography 
