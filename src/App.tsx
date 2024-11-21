@@ -59,8 +59,8 @@ const GameContainer = styled(Paper)`
 
 const GameBoard = styled(Box)`
   position: relative;
-  width: ${props => getGridSize() * getCellSize()}px;
-  height: ${props => getGridSize() * getCellSize()}px;
+  width: ${() => getGridSize() * getCellSize()}px;
+  height: ${() => getGridSize() * getCellSize()}px;
   border: 2px solid #8b5cf6;
   border-radius: 8px;
   background: #faf5ff;
@@ -207,7 +207,6 @@ const App = () => {
   const [touchStart, setTouchStart] = useState<Position | null>(null);
   const [cellSize, setCellSize] = useState(getCellSize());
   const [highScore, setHighScore] = useState(() => getCookie('snakeHighScore'));
-  const [gridSize, setGridSize] = useState(getGridSize());
 
   const getInitialSnake = () => {
     const center = Math.floor(getGridSize() / 2);
@@ -361,8 +360,6 @@ const App = () => {
   useEffect(() => {
     const handleResize = () => {
       setCellSize(getCellSize());
-      setGridSize(getGridSize());
-      // Reset game when screen size changes between mobile and desktop
       resetGame();
     };
 
