@@ -8,15 +8,24 @@ interface Position {
   y: number;
 }
 
-const GRID_SIZE = 20;
-const CELL_SIZE = 25;
-const INITIAL_SPEED = 100;
 const MOBILE_BREAKPOINT = 600;
+const CELL_SIZE = 25;
+
+const getInitialSpeed = () => {
+  if (typeof window === 'undefined') return 100;
+  return window.innerWidth < MOBILE_BREAKPOINT ? 140 : 100;
+};
+
+const getGridSize = () => {
+  if (typeof window === 'undefined') return 20;
+  return window.innerWidth < MOBILE_BREAKPOINT ? 13 : 20;
+};
 
 const getCellSize = () => {
   if (typeof window === 'undefined') return CELL_SIZE;
+  const gridSize = getGridSize();
   return window.innerWidth < MOBILE_BREAKPOINT ? 
-    Math.floor((window.innerWidth - 40) / GRID_SIZE) : 
+    Math.floor((window.innerWidth - 40) / gridSize) : 
     CELL_SIZE;
 };
 
@@ -50,8 +59,8 @@ const GameContainer = styled(Paper)`
 
 const GameBoard = styled(Box)`
   position: relative;
-  width: ${GRID_SIZE * getCellSize()}px;
-  height: ${GRID_SIZE * getCellSize()}px;
+  width: ${props => getGridSize() * getCellSize()}px;
+  height: ${props => getGridSize() * getCellSize()}px;
   border: 2px solid #8b5cf6;
   border-radius: 8px;
   background: #faf5ff;
@@ -70,7 +79,7 @@ const Cell = styled(Box)<{
   background: ${({ $isSnake, color }) =>
     $isSnake ? color : 'transparent'};
   border-radius: ${({ $isHead }) => ($isHead ? '8px' : '4px')};
-  transition: left ${INITIAL_SPEED}ms linear, top ${INITIAL_SPEED}ms linear;
+  transition: left ${getInitialSpeed()}ms linear, top ${getInitialSpeed()}ms linear;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -105,7 +114,7 @@ const FoodCell = styled(Box)`
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: left ${INITIAL_SPEED}ms linear, top ${INITIAL_SPEED}ms linear;
+  transition: left ${getInitialSpeed()}ms linear, top ${getInitialSpeed()}ms linear;
 `;
 
 const GameOverModal = styled(Paper)`
@@ -154,6 +163,35 @@ const getSnakeColor = (index: number) => {
   return `hsl(${hue}, 100%, 50%)`; // HSL color format
 };
 
+// Добавляем в начало файла функции для работы с cookies
+const getCookie = (name: string): number => {
+  const matches = document.cookie.match(new RegExp(
+    "(?:^|; )" + name.replace(/([\.$?*|{}\(\)\[\]\\\/\+^])/g, '\\$1') + "=([^;]*)"
+  ));
+  return matches ? Number(decodeURIComponent(matches[1])) : 0;
+};
+
+const setCookie = (name: string, value: number) => {
+  const date = new Date();
+  date.setTime(date.getTime() + (365 * 24 * 60 * 60 * 1000)); // год
+  document.cookie = `${name}=${value}; expires=${date.toUTCString()}; path=/`;
+};
+
+// Добавляем styled компонент для рекорда
+const HighScoreContainer = styled(Box)`
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  
+  @media (max-width: ${MOBILE_BREAKPOINT - 1}px) {
+    top: 10px;
+    right: 10px;
+  }
+`;
+
 const App = () => {
   const [snake, setSnake] = useState<Position[]>([
     { x: 10, y: 10 },
@@ -168,21 +206,31 @@ const App = () => {
   const [canChangeDirection, setCanChangeDirection] = useState(true);
   const [touchStart, setTouchStart] = useState<Position | null>(null);
   const [cellSize, setCellSize] = useState(getCellSize());
+  const [highScore, setHighScore] = useState(() => getCookie('snakeHighScore'));
+  const [gridSize, setGridSize] = useState(getGridSize());
+
+  const getInitialSnake = () => {
+    const center = Math.floor(getGridSize() / 2);
+    return [
+      { x: center, y: center },
+      { x: center - 1, y: center },
+      { x: center - 2, y: center },
+      { x: center - 3, y: center },
+    ];
+  };
 
   const generateFood = useCallback(() => {
     const getNewFoodPosition = (): Position => {
-      // Create a new position
+      const currentGridSize = getGridSize();
       const newPos = {
-        x: Math.floor(Math.random() * GRID_SIZE),
-        y: Math.floor(Math.random() * GRID_SIZE),
+        x: Math.floor(Math.random() * currentGridSize),
+        y: Math.floor(Math.random() * currentGridSize),
       };
 
-      // Check if this position overlaps with the snake
       const isOnSnake = snake.some(
         segment => segment.x === newPos.x && segment.y === newPos.y
       );
 
-      // If it overlaps, try again recursively
       if (isOnSnake) {
         return getNewFoodPosition();
       }
@@ -194,12 +242,7 @@ const App = () => {
   }, [snake]);
 
   const resetGame = () => {
-    setSnake([
-      { x: 10, y: 10 },
-      { x: 9, y: 10 },
-      { x: 8, y: 10 },
-      { x: 7, y: 10 },
-    ]);
+    setSnake(getInitialSnake());
     setDirection('right');
     setIsGameOver(false);
     setScore(0);
@@ -208,17 +251,16 @@ const App = () => {
   };
 
   const checkCollision = (head: Position, currentSnake: Position[]): boolean => {
-    // Check wall collision
+    const currentGridSize = getGridSize();
     if (
       head.x < 0 ||
-      head.x >= GRID_SIZE ||
+      head.x >= currentGridSize ||
       head.y < 0 ||
-      head.y >= GRID_SIZE
+      head.y >= currentGridSize
     ) {
       return true;
     }
 
-    // Check self collision, but skip the tail since it will move
     return currentSnake.slice(0, -1).some(
       (segment) => segment.x === head.x && segment.y === head.y
     );
@@ -258,14 +300,20 @@ const App = () => {
       if (!(newHead.x === food.x && newHead.y === food.y)) {
         newSnake.pop();
       } else {
-        setScore(score + 1);
+        const newScore = score + 1;
+        setScore(newScore);
+        // Обновляем рекорд если текущий счет больше
+        if (newScore > highScore) {
+          setHighScore(newScore);
+          setCookie('snakeHighScore', newScore);
+        }
         generateFood();
       }
 
       setCanChangeDirection(true);
       return newSnake;
     });
-  }, [direction, food.x, food.y, generateFood, isGameOver, score]);
+  }, [direction, food.x, food.y, generateFood, isGameOver, score, highScore]);
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -306,17 +354,24 @@ const App = () => {
   }, [direction, canChangeDirection]);
 
   useEffect(() => {
-    const gameLoop = setInterval(moveSnake, INITIAL_SPEED);
+    const gameLoop = setInterval(moveSnake, getInitialSpeed());
     return () => clearInterval(gameLoop);
   }, [moveSnake]);
 
   useEffect(() => {
     const handleResize = () => {
       setCellSize(getCellSize());
+      setGridSize(getGridSize());
+      // Reset game when screen size changes between mobile and desktop
+      resetGame();
     };
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    setSnake(getInitialSnake());
   }, []);
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -373,6 +428,26 @@ const App = () => {
           alt="nlogn logo"
         />
       </LogoLink>
+      <HighScoreContainer>
+        <Typography 
+          variant="h6" 
+          sx={{ 
+            color: '#6d28d9',
+            fontSize: { xs: '1rem', sm: '1.25rem' },
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          Рекорд: {highScore}
+          <CoffeeIcon 
+            sx={{ 
+              color: '#6d4c41',
+              fontSize: { xs: '20px', sm: '24px' }
+            }} 
+          />
+        </Typography>
+      </HighScoreContainer>
       <Typography 
         variant="h4" 
         gutterBottom 
